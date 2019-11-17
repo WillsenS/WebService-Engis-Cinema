@@ -22,16 +22,7 @@ SET row_security = off;
 
 CREATE FUNCTION public.check_sufficient_balance() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
-DECLARE
-	current_balance INTEGER := get_balance(NEW.acc_num_src);
-BEGIN
-	IF (current_balance < NEW.amount) THEN
-		RAISE EXCEPTION 'Not enough balance';
-	END IF;
-	RETURN NULL;
-END
-$$;
+    AS $$DECLARE	current_balance INTEGER := get_balance(NEW.acc_num_src);BEGIN	IF (current_balance < NEW.amount) THEN		RAISE EXCEPTION 'Not enough balance';	END IF;	RETURN NEW;END$$;
 
 
 ALTER FUNCTION public.check_sufficient_balance() OWNER TO postgres;
@@ -42,17 +33,12 @@ ALTER FUNCTION public.check_sufficient_balance() OWNER TO postgres;
 
 CREATE FUNCTION public.get_balance(param_acc_num integer) RETURNS integer
     LANGUAGE plpgsql
-    AS $$
-DECLARE
-	result INTEGER;
-BEGIN
-	result := (SELECT balance_last FROM customer WHERE acc_num = param_acc_num);
-
-	IF (result = NULL) THEN
-		RETURN 0;
-	END IF;
-	RETURN result;
-END
+    AS $$
+DECLARE
+	result INTEGER;
+BEGIN
+	RETURN coalesce((SELECT balance_last FROM customer WHERE acc_num = param_acc_num), 0);
+END
 $$;
 
 
@@ -66,12 +52,12 @@ CREATE FUNCTION public.get_credit(param_acc_num integer) RETURNS integer
     LANGUAGE plpgsql
     AS $$
 BEGIN
-	RETURN (
+	RETURN coalesce((
 	SELECT SUM(txn.amount)
 	FROM customer INNER JOIN txn ON (customer.acc_num = txn.acc_num_src)
 	WHERE txn.acc_num_src = param_acc_num
 	GROUP BY customer.name
-	);
+	), 0);
 END
 $$;
 
@@ -84,19 +70,21 @@ ALTER FUNCTION public.get_credit(param_acc_num integer) OWNER TO postgres;
 
 CREATE FUNCTION public.get_debit(param_acc_num integer) RETURNS integer
     LANGUAGE plpgsql
-    AS $$
-BEGIN
-	RETURN (
-	SELECT SUM(txn.amount)
-	FROM customer INNER JOIN txn ON (customer.acc_num = txn.acc_num_dest)
-	WHERE txn.acc_num_dest = param_acc_num
-	GROUP BY customer.name
-	);
-END
-$$;
+    AS $$BEGIN	RETURN coalesce((	SELECT SUM(txn.amount)	FROM customer INNER JOIN txn ON (customer.acc_num = txn.acc_num_dest)	WHERE txn.acc_num_dest = param_acc_num	GROUP BY customer.name	), 0);END$$;
 
 
 ALTER FUNCTION public.get_debit(param_acc_num integer) OWNER TO postgres;
+
+--
+-- Name: update_all_at_once(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.update_all_at_once() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$BEGIN	PERFORM update_balance(NEW.acc_num_src);	PERFORM update_balance(NEW.acc_num_dest);	RETURN NEW;END;$$;
+
+
+ALTER FUNCTION public.update_all_at_once() OWNER TO postgres;
 
 --
 -- Name: update_balance(integer); Type: FUNCTION; Schema: public; Owner: postgres
@@ -221,9 +209,9 @@ ALTER TABLE ONLY public.txn ALTER COLUMN id_txn SET DEFAULT nextval('public.txn_
 
 COPY public.customer (name, acc_num, virt_acc, balance_first, balance_last) FROM stdin;
 Rickie	2	\N	500	385
-Jaskey	3	\N	100	215
-Arvin	5	\N	100	100
-Cipy	6	\N	50	\N
+Cipy	6	\N	50	100
+Arvin	5	\N	100	0
+Jaskey	3	\N	100	265
 \.
 
 
@@ -235,6 +223,9 @@ COPY public.txn (id_txn, acc_num_src, amount, "time", acc_num_dest) FROM stdin;
 1	2	30	2019-11-15 05:37:35.954336	3
 2	2	100	2019-11-15 05:38:01.089311	3
 3	3	15	2019-11-15 05:38:15.815733	2
+15	5	20	2019-11-17 14:07:45.567238	6
+24	5	30	2019-11-17 14:19:57.855234	6
+29	5	50	2019-11-17 14:41:16.252694	3
 \.
 
 
@@ -249,7 +240,7 @@ SELECT pg_catalog.setval('public.customer_acc_num_seq', 6, true);
 -- Name: txn_id_txn_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.txn_id_txn_seq', 14, true);
+SELECT pg_catalog.setval('public.txn_id_txn_seq', 30, true);
 
 
 --
@@ -272,7 +263,14 @@ ALTER TABLE ONLY public.txn
 -- Name: txn check_sufficient_balances; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
-CREATE TRIGGER check_sufficient_balances AFTER INSERT ON public.txn FOR EACH STATEMENT EXECUTE FUNCTION public.check_sufficient_balance();
+CREATE TRIGGER check_sufficient_balances BEFORE INSERT ON public.txn FOR EACH ROW EXECUTE FUNCTION public.check_sufficient_balance();
+
+
+--
+-- Name: txn update_balances; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER update_balances AFTER INSERT ON public.txn FOR EACH ROW EXECUTE FUNCTION public.update_all_at_once();
 
 
 --
