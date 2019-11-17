@@ -1,0 +1,179 @@
+entity user
++ name string[20]
++ no_rek char[6]
++ virt_rek char[9]
++ saldo_awal bigint
++ saldo_terakhir bigint 
+
+trigger
++ update saldo_terakhir setelah transaksi berhasil
+
+CREATE TABLE customer (
+name varchar(20) NOT NULL,
+acc_num SERIAL PRIMARY KEY,
+virt_acc char (9),
+balance_first bigint,
+balance_last bigint
+);
+
+WITH credit AS (SELECT SUM(amount) FROM txn GROUP BY amount),
+debit AS (SELECT SUM(amount) FROM txn GROUP BY amount)
+
+UPDATE customer
+SET customer.balance_last = customer.balance_first + debit + credit
+WHERE acc_num = 2
+
+/* kredit*/
+SELECT 	customer.name, SUM(txn.amount)
+FROM 	customer INNER JOIN txn ON (customer.acc_num = txn.acc_num_src)
+WHERE 	txn.acc_num_src = $<var_1>
+GROUP BY customer.name;
+
+/* debit*/
+SELECT 	customer.name, SUM(txn.amount)
+FROM 	customer INNER JOIN txn ON (customer.acc_num = txn.acc_num_dest)
+WHERE 	txn.acc_num_dest = $<var_1>
+GROUP BY customer.name;
+
+CREATE OR REPLACE FUNCTION update_balance()
+
+relation transaksi
++ id_txn char[10] PRIMARY KEY SERIAL,
++ acc_num_src int FOREIGN KEY,
++ amount bigint
++ acc_num_dest int FOREIGN KEY,
++ time datetime
+
+triggers
++ no_rek_dest must be in customer.acc_num or customer.virt_acc
+
+CREATE TABLE txn (
+id_txn SERIAL PRIMARY KEY,
+acc_num_src int REFERENCES customer(acc_num),
+amount bigint,
+acc_num_dest INT NOT NULL,
+time timestamp);
+
+
+/*
+ APLIKASI
+ validasi
+*/
+select user.no_rek
+from user
+where user.no_rek = $<var_1>
+
+/*retrieving data*/
+select name, no_rek, saldo_terakhir
+from user
+where no_rek = $<var_1>
+
+/*retrieving transaksi*/
+select time, id_txn, type_txn, amount
+from txn
+where no_rek_src = $<var_1> or no_rek_dest = $<var_1>
+order by time desc
+
+/*WEB SERVICE*/
+
+/*validasi*/
+/*retrieving data*/
+
+/*update dan insert transaksi*/
+
+/*retrieving transaksi*/
+/*1. tujuan*/
+
+select time, id_txn, amount
+from txn
+where no_rek_src = $<var_1> and no_rek_dest = $<var_2>
+
+/*2. nominal*/
+
+select time, id_txn, no_rek_dest
+from txn
+where no_rek_src = $<var_1> and amount = $<var_2>
+
+/*3. Range time*/
+select time, id_txn, no_rek_src, no_rek_dest, type_txn, amount
+from txn
+where $<var_1> < time and time < $<var_2>
+
+
+CREATE OR REPLACE FUNCTION get_credit(param_acc_num int)
+RETURNS integer AS $$
+BEGIN
+	RETURN coalesce((
+	SELECT SUM(txn.amount)
+	FROM customer INNER JOIN txn ON (customer.acc_num = txn.acc_num_src)
+	WHERE txn.acc_num_src = param_acc_num
+	GROUP BY customer.name
+	), 0);
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_debit(param_acc_num int)
+RETURNS integer AS $$
+BEGIN
+	RETURN coalesce((
+	SELECT SUM(txn.amount)
+	FROM customer INNER JOIN txn ON (customer.acc_num = txn.acc_num_dest)
+	WHERE txn.acc_num_dest = param_acc_num
+	GROUP BY customer.name
+	), 0);
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_balance(param_acc_num int)
+RETURNS integer AS $$
+DECLARE
+	result INTEGER;
+BEGIN
+	RETURN coalesce((SELECT balance_last FROM customer WHERE acc_num = param_acc_num), 0);
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION update_balance(param_acc_num int)
+RETURNS VOID AS $$
+DECLARE
+	credit INTEGER := get_credit(param_acc_num);
+	debit INTEGER := get_debit(param_acc_num);
+BEGIN
+	UPDATE customer
+	SET balance_last = balance_first + debit - credit
+	WHERE acc_num = param_acc_num;
+END $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_balances
+AFTER INSERT ON txn
+FOR EACH ROW
+	EXECUTE PROCEDURE update_all_at_once();
+
+CREATE OR REPLACE FUNCTION update_all_at_once()
+RETURNS TRIGGER AS $$
+BEGIN
+	PERFORM update_balance(NEW.acc_num_src);
+	PERFORM update_balance(NEW.acc_num_dest);
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_sufficient_balances
+BEFORE INSERT ON txn
+FOR EACH ROW
+	EXECUTE PROCEDURE check_sufficient_balance();
+
+CREATE OR REPLACE FUNCTION check_sufficient_balance()
+RETURNS TRIGGER AS $func$
+DECLARE
+	current_balance INTEGER := get_balance(NEW.acc_num_src);
+BEGIN
+	IF (current_balance < NEW.amount) THEN
+		RAISE EXCEPTION 'Not enough balance';
+	END IF;
+	RETURN NEW;
+END
+$func$ LANGUAGE plpgsql;
+
+INSERT INTO txn (acc_num_src, acc_num_dest, amount)
+VALUES (5, 6, 100)
