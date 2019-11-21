@@ -122,7 +122,6 @@ SET default_table_access_method = heap;
 CREATE TABLE public.customer (
     name character varying(20) NOT NULL,
     acc_num integer NOT NULL,
-    virt_acc character(9),
     balance_first bigint,
     balance_last bigint
 );
@@ -190,6 +189,18 @@ ALTER SEQUENCE public.txn_id_txn_seq OWNED BY public.txn.id_txn;
 
 
 --
+-- Name: virtual; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.virtual (
+    acc_num integer,
+    virt_acc character varying(9)
+);
+
+
+ALTER TABLE public.virtual OWNER TO postgres;
+
+--
 -- Name: customer acc_num; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -207,11 +218,11 @@ ALTER TABLE ONLY public.txn ALTER COLUMN id_txn SET DEFAULT nextval('public.txn_
 -- Data for Name: customer; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.customer (name, acc_num, virt_acc, balance_first, balance_last) FROM stdin;
-Rickie	2	\N	500	385
-Cipy	6	\N	50	100
-Arvin	5	\N	100	0
-Jaskey	3	\N	100	265
+COPY public.customer (name, acc_num, balance_first, balance_last) FROM stdin;
+Rickie	2	500	385
+Cipy	6	50	100
+Arvin	5	100	0
+Jaskey	3	100	265
 \.
 
 
@@ -226,6 +237,14 @@ COPY public.txn (id_txn, acc_num_src, amount, "time", acc_num_dest) FROM stdin;
 15	5	20	2019-11-17 14:07:45.567238	6
 24	5	30	2019-11-17 14:19:57.855234	6
 29	5	50	2019-11-17 14:41:16.252694	3
+\.
+
+
+--
+-- Data for Name: virtual; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.virtual (acc_num, virt_acc) FROM stdin;
 \.
 
 
@@ -287,6 +306,14 @@ ALTER TABLE ONLY public.txn
 
 ALTER TABLE ONLY public.txn
     ADD CONSTRAINT txn_acc_num_src_fkey FOREIGN KEY (acc_num_src) REFERENCES public.customer(acc_num);
+
+
+--
+-- Name: virtual virtual_acc_num_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.virtual
+    ADD CONSTRAINT virtual_acc_num_fkey FOREIGN KEY (acc_num) REFERENCES public.customer(acc_num);
 
 
 --
