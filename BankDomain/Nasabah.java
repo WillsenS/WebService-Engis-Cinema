@@ -1,11 +1,11 @@
-package BankDomain;
+package BankDomain;	
 
 public class Nasabah {
 	private String nama;
-	private String no_rek;
+	private int no_rek;
 	private long saldo;
 	
-	public Nasabah(String nama, String no_rek, long saldo) {
+	public Nasabah(String nama, int no_rek, long saldo) {
 		super();
 		this.nama = nama;
 		this.no_rek = no_rek;
@@ -20,11 +20,11 @@ public class Nasabah {
 		this.nama = nama;
 	}
 
-	public String getNo_rek() {
+	public int getNo_rek() {
 		return no_rek;
 	}
 
-	public void setNo_rek(String no_rek) {
+	public void setNo_rek(int no_rek) {
 		this.no_rek = no_rek;
 	}
 
@@ -38,3 +38,4 @@ public class Nasabah {
 	
 	
 }
+
