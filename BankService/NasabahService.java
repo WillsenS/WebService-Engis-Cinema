@@ -11,13 +11,13 @@ import BankDomain.Nasabah;
 @WebService
 public class NasabahService {
 	
-	public Nasabah getNasabahByNoRek(String no) {
-		try (Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost:5432/example", "postgres", "postgres")) {
+	public Nasabah getNasabahByNoRek(int no) {
+        try (Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost:5432/example", "postgres", "postgres")) {
             Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery("SELECT * FROM public.customer");
+            ResultSet resultSet = statement.executeQuery("SELECT * FROM public.customer;");
             while (resultSet.next()) {
-                if(no == resultSet.getString("no_rek")) {
-                	return new Nasabah(resultSet.getString("nama"), resultSet.getString("no_rek"), resultSet.getLong("saldo"));
+                if(no == resultSet.getInt("acc_num")) {
+                    return new Nasabah(resultSet.getString("name"), resultSet.getInt("acc_num"), resultSet.getLong("balance_last"));
                 }
             }
             return null;
@@ -28,6 +28,6 @@ public class NasabahService {
             System.out.println("Connection failure.");
             e.printStackTrace();
         }
-		return null;
-	}
+        return null;
+    }
 }
