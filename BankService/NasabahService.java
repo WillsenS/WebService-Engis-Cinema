@@ -11,20 +11,20 @@ import BankDomain.Nasabah;
 @WebService
 public class NasabahService {
 	
-	public boolean isNoRekValid(String no) {
-		try (Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost:5432/example", "postgres", "postgres")) {
+	public boolean isNoRekValid(int no) {
+        try (Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost:5432/example", "postgres", "postgres")) {
             Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery("SELECT * FROM public.customer");
+            ResultSet resultSet = statement.executeQuery("SELECT * FROM public.customer;");
             while (resultSet.next()) {
-                if(no == resultSet.getString("no_rek")) {
-                	return true;
+                if(no == resultSet.getInt("acc_num")) {
+                    return true;
                 }
             }
             return false;
         }catch (SQLException e) {
-            	System.out.println("Connection failure.");
-            	e.printStackTrace();
+                System.out.println("Connection failure.");
+                e.printStackTrace();
         }
-		return false;
-	}
+        return false;
+    }
 }
