@@ -1,10 +1,12 @@
 entity user
 + name string[20]
 + no_rek char[6]
-+ virt_rek char[9]
 + saldo_awal bigint
 + saldo_terakhir bigint 
 
+entity virtual
++ acc_number FK user(no_rek)
++ virt_rek char[9]
 trigger
 + update saldo_terakhir setelah transaksi berhasil
 
