@@ -37,6 +37,23 @@ public class NasabahService {
         }
         return false;
     }
+
+	public void TransferMoney(int sender, int receiver, long jumlah) {
+        if(isNoRekValid(sender) && isNoRekValid(receiver)) {
+            try (Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost/WebServiceBank", "postgres", "")) {
+                Statement statement = connection.createStatement();
+                statement.executeUpdate("INSERT INTO txn(acc_num_src,amount,acc_num_dest) VALUES (" + sender +", " + jumlah +", " + receiver+ ");");
+            }
+            catch (SQLException e) {
+                System.out.println("Connection failure.");
+                e.printStackTrace();
+            }
+        }
+        else {
+            System.out.println("Nomor rekening tidak ditemukan");
+        }
+    }
+
 	public Nasabah getNasabahByNoRek(int no) {
         try (Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost/WebServiceBank", "postgres", "")) {
             Statement statement = connection.createStatement();
