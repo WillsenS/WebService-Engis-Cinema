@@ -10,5 +10,22 @@ import BankDomain.Nasabah;
 
 @WebService
 public class NasabahService {
-
+	
+	public Nasabah getNasabahByNoRek(int no) {
+        try (Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost/WebServiceBank", "postgres", "")) {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery("SELECT * FROM public.customer;");
+            while (resultSet.next()) {
+                if(no == resultSet.getInt("acc_num")) {
+                    return new Nasabah(resultSet.getString("name"), resultSet.getInt("acc_num"), resultSet.getLong("balance_last"));
+                }
+            }
+            return null;
+        } /*catch (ClassNotFoundException e) {
+            System.out.println("PostgreSQL JDBC driver not found.");
+            e.printStackTrace();
+        }*/ catch (SQLException e) {
+            System.out.println("Connection failure.");
+            e.printStackTrace();
+        }
 }
