@@ -12,7 +12,7 @@ import BankDomain.Nasabah;
 public class NasabahService {
 	
 	public boolean isNoRekValid(int no) {
-        try (Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost:5432/example", "postgres", "postgres")) {
+        try (Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost/WebServiceBank", "postgres", "")) {
             Statement statement = connection.createStatement();
             ResultSet resultSet = statement.executeQuery("SELECT * FROM public.customer;");
             while (resultSet.next()) {
